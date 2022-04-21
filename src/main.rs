@@ -1,13 +1,16 @@
+#[macro_use] extern crate rocket;
+
 mod models;
 mod api;
 mod core;
 
 use crate::api::repository::repository_tasks_mongo::RepositoryTaskMongo;
+use crate::api::controller::tasks::get_all;
 use crate::core::services::repository::Repository;
 use crate::models::task::Task;
 
 #[rocket::main]
-async fn main() -> mongodb::error::Result<()> {
+async fn main() -> Result<(), rocket::Error> {
     println!("Hello, world!");
 
     let task_repository: RepositoryTaskMongo = RepositoryTaskMongo::new().await;
@@ -16,5 +19,6 @@ async fn main() -> mongodb::error::Result<()> {
     println!("creation Ok");
     let datas: Vec<Task> = task_repository.read_all().await;
     println!("{:?}", datas);
-    Ok(())
+    
+    rocket::build().mount("/", routes![get_all]).launch().await
 }
