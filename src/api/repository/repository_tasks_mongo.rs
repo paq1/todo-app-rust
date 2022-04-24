@@ -17,7 +17,7 @@ pub struct RepositoryTaskMongo {
 impl RepositoryTaskMongo {
     pub async fn new() -> Self {
         let mut client_options_f: mongodb::error::Result<ClientOptions> = ClientOptions::parse("mongodb://localhost:27017").await;
-        let mut client_options: ClientOptions = ClientOptions::parse("mongodb://localhost:27017").await.unwrap(); // ? equivalent to .unwrap()
+        let mut client_options: ClientOptions = client_options_f.unwrap();
         let client: Client = Client::with_options(client_options).unwrap();
 
         // Ping the server to see if you can connect to the server
