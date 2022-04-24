@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use mongodb::bson::{doc, Bson, Document};
 use mongodb::{options::ClientOptions, options::FindOptions, Client, Database, Collection, Cursor};
+use mongodb::bson::oid::ObjectId;
 use futures::stream::TryStreamExt;
 
 use crate::core::services::repository::Repository;
@@ -48,7 +49,11 @@ impl Repository<Task, Task> for RepositoryTaskMongo {
         let mut lst = Vec::new();
         while let Some(task) = cursor.try_next().await.unwrap() {
             let title_bson: &Bson = &task.get("title").unwrap();
+            let id_bson: &Bson = &task.get("_id").unwrap();
             let title_str: String = title_bson.as_str().unwrap().to_string();
+            let obj_id: ObjectId = id_bson.as_object_id().unwrap();
+            let id_str: String = obj_id.to_hex();
+            println!("id : {}", id_str);
             lst.push(Task::new(title_str))
         }
         lst
