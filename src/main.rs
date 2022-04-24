@@ -20,7 +20,6 @@ async fn main() -> Result<(), rocket::Error> {
     let datas: Vec<Task> = task_repository.read_all().await;
     println!("{:?}", datas);
     
-
     let tt = TT::new();
 
     rocket::build()

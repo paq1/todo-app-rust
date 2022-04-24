@@ -1,11 +1,12 @@
 use async_trait::async_trait;
 
+use mongodb::bson::{doc, Bson, Document};
+use mongodb::{options::ClientOptions, options::FindOptions, Client, Database, Collection, Cursor};
+use futures::stream::TryStreamExt;
+
 use crate::core::services::repository::Repository;
 use crate::models::task::Task;
-use mongodb::bson;
-use mongodb::{bson::doc, options::ClientOptions, options::FindOptions, Client, Database, Collection, bson::Document, Cursor};
 use crate::api::mapper::task_mapper::map_task_to_document;
-use futures::stream::TryStreamExt;
 
 pub struct RepositoryTaskMongo {
     client: Client,
@@ -16,7 +17,7 @@ pub struct RepositoryTaskMongo {
 impl RepositoryTaskMongo {
     pub async fn new() -> Self {
         let mut client_options_f: mongodb::error::Result<ClientOptions> = ClientOptions::parse("mongodb://localhost:27017").await;
-        let mut client_options: ClientOptions = ClientOptions::parse("mongodb://localhost:27017").await.unwrap(); // ? equivalent to .unwrap()
+        let mut client_options: ClientOptions = client_options_f.unwrap();
         let client: Client = Client::with_options(client_options).unwrap();
 
         // Ping the server to see if you can connect to the server
@@ -32,7 +33,7 @@ impl RepositoryTaskMongo {
 #[async_trait]
 impl Repository<Task, Task> for RepositoryTaskMongo {
     async fn create(&self, model: Task) {
-        let toto = doc! { "title": model.get_title() };
+        let toto: Document = doc! { "title": model.get_title() };
         let docs = vec![
             map_task_to_document(model)
         ];
@@ -46,8 +47,9 @@ impl Repository<Task, Task> for RepositoryTaskMongo {
         let mut cursor: Cursor<Document> = self.collection.find(filter, find_options).await.unwrap();
         let mut lst = Vec::new();
         while let Some(task) = cursor.try_next().await.unwrap() {
-            let title = &task.get("title").unwrap();
-            lst.push(Task::new(title.to_string()))
+            let title_bson: &Bson = &task.get("title").unwrap();
+            let title_str: String = title_bson.as_str().unwrap().to_string();
+            lst.push(Task::new(title_str))
         }
         lst
     }
