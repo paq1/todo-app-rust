@@ -5,7 +5,7 @@ mod api;
 mod core;
 
 use crate::api::repository::repository_tasks_mongo::RepositoryTaskMongo;
-use crate::api::controller::tasks::{get_all, TT};
+use crate::api::controller::tasks::{get_all, create_task, TT};
 use crate::core::services::repository::Repository;
 use crate::models::task::Task;
 
@@ -14,8 +14,8 @@ async fn main() -> Result<(), rocket::Error> {
     println!("Hello, world!");
 
     let task_repository: RepositoryTaskMongo = RepositoryTaskMongo::new().await;
-    let task = Task::new("finir le projet notification".to_string());
-    task_repository.create(task).await;
+    // let task = Task::new("finir le projet notification".to_string());
+    // task_repository.create(task).await;
     println!("creation Ok");
     let datas: Vec<Task> = task_repository.read_all().await;
     println!("{:?}", datas);
@@ -25,5 +25,6 @@ async fn main() -> Result<(), rocket::Error> {
     rocket::build()
         .manage(tt)
         .manage(task_repository)
-        .mount("/", routes![get_all]).launch().await
+        .mount("/", routes![get_all, create_task])
+        .launch().await
 }
