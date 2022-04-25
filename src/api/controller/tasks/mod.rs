@@ -8,6 +8,7 @@ use crate::api::repository::dbo::task_dbo::TaskDbo;
 use crate::core::mapper::{MapperDto, MapperModel};
 use crate::core::services::repository::Repository;
 use crate::models::task::Task;
+use crate::models::error::ErrorMessage;
 
 #[post("/tasks", data = "<task_dto_json>")]
 pub async fn create_task(
@@ -23,22 +24,28 @@ pub async fn create_task(
     // on ajoute notre model en db
     match task_repository.create(model).await {
         Ok(task) => Ok(Json(task.to_model().to_dto())),
-        Err(err) => Err(Json(ErrorJson::new(err.to_string(), Status::NotFound.code)))
+        Err(err) => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
     }
 }
 
 #[get("/tasks")]
 pub async fn get_all(
     task_repository: &State<RepositoryTaskMongo>
-) -> Json<Vec<TaskDto>> {
-    let dbos: Vec<TaskDbo> = task_repository.read_all().await;
-    let entities: Vec<TaskDto> = dbos
-        .iter()
-        .map(|dbo| dbo.to_model())
-        .map(|model| model.to_dto())
-        .collect::<_>();
+) -> Result<Json<Vec<TaskDto>>, Json<ErrorJson>> {
+    let dbos_res: Result<Vec<TaskDbo>, ErrorMessage> = task_repository
+        .read_all().await;
 
-    Json(entities)
+    match dbos_res {
+        Ok(dbos) => {
+            let entities: Vec<TaskDto> = dbos
+                .iter()
+                .map(|dbo| dbo.to_model())
+                .map(|model| model.to_dto())
+                .collect::<_>();
+            Ok(Json(entities))
+        },
+        Err(err) => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
+    }
 }
 
 #[put("/tasks", data = "<task_data_dto>")]
@@ -48,47 +55,54 @@ pub async fn update(
 ) -> Result<Json<TaskDto>, Json<ErrorJson>> {
     let dto: TaskDto = task_data_dto.0;
     let model: Task = dto.to_model();
-    task_repository.update(model).await;
-
+    task_repository.update(model).await.unwrap();
     let id: String = dto.get_id().unwrap();
-    
     match task_repository.read(id).await {
         Ok(task) => {
             let task_dto = task.to_model().to_dto();
             Ok(Json(task_dto))
         },
-        Err(err) => {
-            let error: ErrorJson = ErrorJson::new(err.to_string(), Status::NotFound.code);
-            Err(Json(error))
-        }
+        Err(err) => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
     }
-} 
+}
 
 #[delete("/tasks/<id>")]
 pub async fn delete_task_by_id(
     task_repository: &State<RepositoryTaskMongo>,
     id: String
-) -> String {
-    let dbos: Vec<TaskDbo> = task_repository.read_all().await;
-    let tasks: Vec<Task> = dbos
-        .into_iter()
-        .filter(|dbo| dbo.get_id() == id)
-        .map(|dbo| dbo.to_model())
-        .collect::<_>();
+) -> Result<String, Json<ErrorJson>> {
+    let dbos_res: Result<Vec<TaskDbo>, ErrorMessage> = task_repository
+        .read_all().await;
 
-    if tasks.len() > 0 {
-        let model: Task = tasks[0].clone();
-        task_repository.delete(model).await;
-        format! ("nombre de suppression : {}", tasks.len())
-    } else {
-        format! ("pas d'id : {}", id)
+    match dbos_res {
+        Ok(dbos) => {
+            let tasks: Vec<Task> = dbos
+                .into_iter()
+                .filter(|dbo| dbo.get_id() == id)
+                .map(|dbo| dbo.to_model())
+                .collect::<_>();
+
+            if tasks.len() > 0 {
+                let model: Task = tasks[0].clone();
+                match task_repository.delete(model).await {
+                    Ok (delete_id) => Ok(format! ("delete : {}", delete_id)),
+                    Err(err) => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
+                }
+            } else {
+                let message = format!("pas d'id : {}", id);
+                Err(Json(ErrorJson::new(message, Status::NotFound.code)))
+            }
+        },
+        Err(err) => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
     }
 }
 
 #[delete("/tasks")]
 pub async fn delete_all(
     task_repository: &State<RepositoryTaskMongo>
-) -> String {
-    task_repository.delete_all().await;
-    "Ok".to_string()
+) -> Result<String, Json<ErrorJson>> {
+    match task_repository.delete_all().await {
+        Ok(message) => Ok(message),
+        Err(err) => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
+    }
 }
