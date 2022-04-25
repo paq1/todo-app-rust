@@ -5,7 +5,7 @@ mod api;
 mod core;
 
 use crate::api::repository::repository_tasks_mongo::RepositoryTaskMongo;
-use crate::api::controller::tasks::{get_all, create_task};
+use crate::api::controller::tasks::{get_all, create_task, delete_task_by_id, delete_all};
 use crate::core::services::repository::Repository;
 use crate::api::repository::dbo::task_dbo::TaskDbo;
 use crate::core::mapper::MapperModel;
@@ -24,7 +24,7 @@ async fn main() -> Result<(), rocket::Error> {
     
     rocket::build()
         .manage(task_repository)
-        .mount("/", routes![get_all, create_task])
+        .mount("/", routes![get_all, create_task, delete_task_by_id, delete_all])
         .launch().await
 }
 
