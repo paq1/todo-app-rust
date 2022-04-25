@@ -11,6 +11,7 @@ use crate::models::task::Task;
 use crate::api::mapper::MapperDocument;
 use crate::core::mapper::{MapperModel, MapperDbo};
 use crate::api::repository::dbo::task_dbo::TaskDbo;
+use crate::models::error::ErrorMessage;
 
 static DB_NAME: &str = "todo-db";
 static COLLECTION_NAME: &str = "tasks";
@@ -36,18 +37,30 @@ impl RepositoryTaskMongo {
 }
 
 #[async_trait]
-impl Repository<Task, TaskDbo> for RepositoryTaskMongo {
-    async fn create(&self, model: Task) {
+impl Repository<Task, TaskDbo, String> for RepositoryTaskMongo {
+    async fn create(&self, model: Task) -> Result<TaskDbo, ErrorMessage> {
         let doc: Document = model.to_document();
         let docs = vec![
             doc
         ];
 
-        self.collection.insert_many(docs, None).await.unwrap();
+        let value = self.collection.insert_many(docs, None).await.unwrap();
+        let ids_map = value.inserted_ids;
+        let mut ids: Vec<String> = Vec::new();
+
+        for (_, value) in ids_map.into_iter() {
+            let obj: &Bson = &value;
+            let id = obj.as_object_id().unwrap().to_hex();
+            ids.push(id)
+        }
+
+        let id: String = ids[0].clone();
+        
+        self.read(id).await
     }
 
-    async fn read(&self, id: String) -> Result<TaskDbo, String> {
-        let res: Vec<TaskDbo> = self.read_all().await
+    async fn read(&self, id: String) -> Result<TaskDbo, ErrorMessage> {
+        let res: Vec<TaskDbo> = self.read_all().await?
             .into_iter()
             .filter(|dbo| dbo.get_id() == id)
             .collect::<Vec<TaskDbo>>();
@@ -55,11 +68,11 @@ impl Repository<Task, TaskDbo> for RepositoryTaskMongo {
         if res.len() > 0 {
             Ok(res[0].clone())
         } else {
-            Err("Il y a une erreur".to_string())
+            Err(ErrorMessage::new(format!("l'id {} n'existe pas", id)))
         }
     }
 
-    async fn read_all(&self) -> Vec<TaskDbo> {
+    async fn read_all(&self) -> Result<Vec<TaskDbo>, ErrorMessage> {
         let filter = doc! {};
         let find_options = FindOptions::builder().build();
         let mut cursor: Cursor<Document> = self.collection.find(filter, find_options).await.unwrap();
@@ -75,28 +88,32 @@ impl Repository<Task, TaskDbo> for RepositoryTaskMongo {
             let task_dbo: TaskDbo = TaskDbo::new(id_str, title_str);
             lst.push(task_dbo);
         }
-        lst
+        Ok(lst)
     }
 
-    async fn update(&self, model: Task) {
+    async fn update(&self, model: Task) -> Result<TaskDbo, ErrorMessage> {
         let dbo = model.to_dbo();
         let object_id: ObjectId = ObjectId::parse_str(dbo.get_id()).unwrap();
 
         let id_document: Document = doc! { "_id": object_id };
         let update = doc! { "$set": { "title": dbo.get_title() } };
         self.collection.update_one(id_document, update, None).await.unwrap();
+
+        self.read(model.get_id()).await
     }
 
-    async fn delete(&self, model: Task) {   
+    async fn delete(&self, model: Task) -> Result<String, ErrorMessage> {   
         let object_id: ObjectId = ObjectId::parse_str(model.get_id()).unwrap();
         let document = doc! {"_id": object_id };
         let delete_result = self.collection.delete_many(document, None).await.unwrap();
+        
         println!("{}", delete_result.deleted_count);
+        Ok(model.get_id())
     }
 
-    async fn delete_all(&self) {
+    async fn delete_all(&self) -> Result<String, ErrorMessage> {
         // on recupere toutes les tasks
-        let dbos: Vec<TaskDbo> = self.read_all().await;
+        let dbos: Vec<TaskDbo> = self.read_all().await?;
         let models: Vec<Task> = dbos.iter().map(|dbo| dbo.to_model()).collect();
 
         future::join_all(
@@ -104,6 +121,8 @@ impl Repository<Task, TaskDbo> for RepositoryTaskMongo {
                 self.delete(model.clone())
             })
         ).await;
+
+        Ok(format!("{} éléments supprimé", models.len()))
     }
 }
 
