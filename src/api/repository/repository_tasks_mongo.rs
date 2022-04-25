@@ -9,7 +9,7 @@ use futures::future;
 use crate::core::services::repository::Repository;
 use crate::models::task::Task;
 use crate::api::mapper::MapperDocument;
-use crate::core::mapper::MapperModel;
+use crate::core::mapper::{MapperModel, MapperDbo};
 use crate::api::repository::dbo::task_dbo::TaskDbo;
 
 static DB_NAME: &str = "todo-db";
@@ -46,6 +46,19 @@ impl Repository<Task, TaskDbo> for RepositoryTaskMongo {
         self.collection.insert_many(docs, None).await.unwrap();
     }
 
+    async fn read(&self, id: String) -> Result<TaskDbo, String> {
+        let res: Vec<TaskDbo> = self.read_all().await
+            .into_iter()
+            .filter(|dbo| dbo.get_id() == id)
+            .collect::<Vec<TaskDbo>>();
+        
+        if res.len() > 0 {
+            Ok(res[0].clone())
+        } else {
+            Err("Il y a une erreur".to_string())
+        }
+    }
+
     async fn read_all(&self) -> Vec<TaskDbo> {
         let filter = doc! {};
         let find_options = FindOptions::builder().build();
@@ -63,6 +76,15 @@ impl Repository<Task, TaskDbo> for RepositoryTaskMongo {
             lst.push(task_dbo);
         }
         lst
+    }
+
+    async fn update(&self, model: Task) {
+        let dbo = model.to_dbo();
+        let object_id: ObjectId = ObjectId::parse_str(dbo.get_id()).unwrap();
+
+        let id_document: Document = doc! { "_id": object_id };
+        let update = doc! { "$set": { "title": dbo.get_title() } };
+        self.collection.update_one(id_document, update, None).await.unwrap();
     }
 
     async fn delete(&self, model: Task) {   
