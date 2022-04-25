@@ -13,18 +13,18 @@ use crate::models::task::Task;
 pub async fn create_task(
     task_repository: &State<RepositoryTaskMongo>,
     task_dto_json: Json<TaskDto>
-) -> Status {
+) -> Result<Json<TaskDto>, Json<ErrorJson>> {
     // etape 1 on cast TaskDto json vers TaskDto
     let task_dto: TaskDto = task_dto_json.0;
 
     // on transform notre dto en model
-    let task = task_dto.to_model();
+    let model = task_dto.to_model();
 
     // on ajoute notre model en db
-    task_repository.create(task).await;
-
-    // tout c'est bien passé (pas de panic ici)
-    Status::Ok
+    match task_repository.create(model).await {
+        Ok(task) => Ok(Json(task.to_model().to_dto())),
+        Err(err) => Err(Json(ErrorJson::new(err.to_string(), Status::NotFound.code)))
+    }
 }
 
 #[get("/tasks")]
@@ -49,14 +49,16 @@ pub async fn update(
     let dto: TaskDto = task_data_dto.0;
     let model: Task = dto.to_model();
     task_repository.update(model).await;
+
+    let id: String = dto.get_id().unwrap();
     
-    match task_repository.read(dto.get_id()).await {
+    match task_repository.read(id).await {
         Ok(task) => {
             let task_dto = task.to_model().to_dto();
             Ok(Json(task_dto))
         },
         Err(err) => {
-            let error: ErrorJson = ErrorJson::new(err.to_string());
+            let error: ErrorJson = ErrorJson::new(err.to_string(), Status::NotFound.code);
             Err(Json(error))
         }
     }

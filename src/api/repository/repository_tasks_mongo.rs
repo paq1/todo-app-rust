@@ -37,13 +37,25 @@ impl RepositoryTaskMongo {
 
 #[async_trait]
 impl Repository<Task, TaskDbo> for RepositoryTaskMongo {
-    async fn create(&self, model: Task) {
+    async fn create(&self, model: Task) -> Result<TaskDbo, String> {
         let doc: Document = model.to_document();
         let docs = vec![
             doc
         ];
 
-        self.collection.insert_many(docs, None).await.unwrap();
+        let value = self.collection.insert_many(docs, None).await.unwrap();
+        let ids_map = value.inserted_ids;
+        let mut ids: Vec<String> = Vec::new();
+
+        for (_, value) in ids_map.into_iter() {
+            let obj: &Bson = &value;
+            let id = obj.as_object_id().unwrap().to_hex();
+            ids.push(id)
+        }
+
+        let id: String = ids[0].clone();
+        
+        self.read(id).await
     }
 
     async fn read(&self, id: String) -> Result<TaskDbo, String> {

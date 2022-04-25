@@ -20,7 +20,7 @@ impl MapperDbo<TaskDbo> for Task {
 
 impl MapperDto<TaskDto> for Task {
     fn to_dto(&self) -> TaskDto {
-        TaskDto::new(self.get_id(), self.get_title()) 
+        TaskDto::new(Some(self.get_id()), self.get_title()) 
     }
 }
 
@@ -32,6 +32,10 @@ impl MapperModel<Task> for TaskDbo {
 
 impl MapperModel<Task> for TaskDto {
     fn to_model(&self) -> Task {
-        Task::new(self.get_id(), self.get_title()) 
+        let id: String = match self.get_id() {
+            Some(id) => id,
+            None => "".to_string()
+        };
+        Task::new(id, self.get_title())
     }
 }
