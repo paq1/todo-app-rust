@@ -3,25 +3,11 @@ use rocket::http::Status;
 use rocket::serde::json::Json;
 
 use crate::api::repository::repository_tasks_mongo::RepositoryTaskMongo;
-use crate::api::controller::dto::task_dto::TaskDto;
+use crate::api::controller::dto::{task_dto::TaskDto, error::ErrorJson};
 use crate::api::repository::dbo::task_dbo::TaskDbo;
 use crate::core::mapper::{MapperDto, MapperModel};
 use crate::core::services::repository::Repository;
 use crate::models::task::Task;
-
-#[get("/tasks")]
-pub async fn get_all(
-    task_repository: &State<RepositoryTaskMongo>
-) -> Json<Vec<TaskDto>> {
-    let dbos: Vec<TaskDbo> = task_repository.read_all().await;
-    let entities: Vec<TaskDto> = dbos
-        .iter()
-        .map(|dbo| dbo.to_model())
-        .map(|model| model.to_dto())
-        .collect::<_>();
-
-    Json(entities)
-}
 
 #[post("/tasks", data = "<task_dto_json>")]
 pub async fn create_task(
@@ -40,6 +26,41 @@ pub async fn create_task(
     // tout c'est bien passé (pas de panic ici)
     Status::Ok
 }
+
+#[get("/tasks")]
+pub async fn get_all(
+    task_repository: &State<RepositoryTaskMongo>
+) -> Json<Vec<TaskDto>> {
+    let dbos: Vec<TaskDbo> = task_repository.read_all().await;
+    let entities: Vec<TaskDto> = dbos
+        .iter()
+        .map(|dbo| dbo.to_model())
+        .map(|model| model.to_dto())
+        .collect::<_>();
+
+    Json(entities)
+}
+
+#[put("/tasks", data = "<task_data_dto>")]
+pub async fn update(
+    task_repository: &State<RepositoryTaskMongo>,
+    task_data_dto: Json<TaskDto>
+) -> Result<Json<TaskDto>, Json<ErrorJson>> {
+    let dto: TaskDto = task_data_dto.0;
+    let model: Task = dto.to_model();
+    task_repository.update(model).await;
+    
+    match task_repository.read(dto.get_id()).await {
+        Ok(task) => {
+            let task_dto = task.to_model().to_dto();
+            Ok(Json(task_dto))
+        },
+        Err(err) => {
+            let error: ErrorJson = ErrorJson::new(err.to_string());
+            Err(Json(error))
+        }
+    }
+} 
 
 #[delete("/tasks/<id>")]
 pub async fn delete_task_by_id(
