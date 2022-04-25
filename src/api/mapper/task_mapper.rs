@@ -3,7 +3,8 @@ use mongodb::{bson::doc,bson::Document};
 use crate::models::task::Task;
 use crate::api::controller::dto::task_dto::TaskDto;
 use crate::api::repository::dbo::task_dbo::TaskDbo;
-use crate::api::mapper::{MapperDocument, MapperDbo, MapperDto, MapperModel};
+use crate::core::mapper::{MapperDbo, MapperDto, MapperModel};
+use crate::api::mapper::MapperDocument;
 
 impl MapperDocument for Task {
     fn to_document(&self) -> Document {

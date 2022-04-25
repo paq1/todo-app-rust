@@ -8,7 +8,7 @@ use crate::api::repository::repository_tasks_mongo::RepositoryTaskMongo;
 use crate::api::controller::tasks::{get_all, create_task};
 use crate::core::services::repository::Repository;
 use crate::api::repository::dbo::task_dbo::TaskDbo;
-use crate::api::mapper::MapperModel;
+use crate::core::mapper::MapperModel;
 use crate::models::task::Task;
 
 #[rocket::main]

@@ -5,7 +5,7 @@ use rocket::serde::json::Json;
 use crate::api::repository::repository_tasks_mongo::RepositoryTaskMongo;
 use crate::api::controller::dto::task_dto::TaskDto;
 use crate::api::repository::dbo::task_dbo::TaskDbo;
-use crate::api::mapper::{MapperDto, MapperModel};
+use crate::core::mapper::{MapperDto, MapperModel};
 use crate::core::services::repository::Repository;
 
 #[get("/tasks")]
