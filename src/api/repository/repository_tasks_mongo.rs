@@ -1,48 +1,50 @@
 use async_trait::async_trait;
 
 use mongodb::bson::{doc, Bson, Document};
-use mongodb::{options::ClientOptions, options::FindOptions, Client, Database, Collection, Cursor};
+use mongodb::{options::ClientOptions, options::FindOptions, Client, Collection, Cursor};
 use mongodb::bson::oid::ObjectId;
 use futures::stream::TryStreamExt;
 
 use crate::core::services::repository::Repository;
 use crate::models::task::Task;
-use crate::api::mapper::task_mapper::map_task_to_document;
+use crate::api::mapper::{MapperDocument};
+use crate::api::repository::dbo::task_dbo::TaskDbo;
+
+static DB_NAME: &str = "todo-db";
+static COLLECTION_NAME: &str = "tasks";
 
 pub struct RepositoryTaskMongo {
-    client: Client,
-    db: Database,
     collection: Collection<Document>
 }
 
 impl RepositoryTaskMongo {
     pub async fn new() -> Self {
-        let mut client_options_f: mongodb::error::Result<ClientOptions> = ClientOptions::parse("mongodb://localhost:27017").await;
-        let mut client_options: ClientOptions = client_options_f.unwrap();
+        let client_options_f: mongodb::error::Result<ClientOptions> = ClientOptions::parse("mongodb://localhost:27017").await;
+        let client_options: ClientOptions = client_options_f.unwrap();
         let client: Client = Client::with_options(client_options).unwrap();
 
         // Ping the server to see if you can connect to the server
-        check_connection(&client).await;
+        check_connection(&client).await.unwrap();
 
-        let db = client.database("todo-db");
-        let collection = db.collection::<Document>("tasks");
+        let db = client.database(DB_NAME);
+        let collection = db.collection::<Document>(COLLECTION_NAME);
 
-        RepositoryTaskMongo {client, db, collection}
+        RepositoryTaskMongo { collection }
     }
 }
 
 #[async_trait]
-impl Repository<Task, Task> for RepositoryTaskMongo {
+impl Repository<Task, TaskDbo> for RepositoryTaskMongo {
     async fn create(&self, model: Task) {
-        let toto: Document = doc! { "title": model.get_title() };
+        let doc: Document = model.to_document();
         let docs = vec![
-            map_task_to_document(model)
+            doc
         ];
 
-        self.collection.insert_many(docs, None).await;
+        self.collection.insert_many(docs, None).await.unwrap();
     }
 
-    async fn read_all(&self) -> Vec<Task> {
+    async fn read_all(&self) -> Vec<TaskDbo> {
         let filter = doc! {};
         let find_options = FindOptions::builder().build();
         let mut cursor: Cursor<Document> = self.collection.find(filter, find_options).await.unwrap();
@@ -53,8 +55,10 @@ impl Repository<Task, Task> for RepositoryTaskMongo {
             let title_str: String = title_bson.as_str().unwrap().to_string();
             let obj_id: ObjectId = id_bson.as_object_id().unwrap();
             let id_str: String = obj_id.to_hex();
-            println!("id : {}", id_str);
-            lst.push(Task::new(title_str))
+            
+            // contruction du dbo
+            let task_dbo: TaskDbo = TaskDbo::new(id_str, title_str);
+            lst.push(task_dbo);
         }
         lst
     }
@@ -62,7 +66,7 @@ impl Repository<Task, Task> for RepositoryTaskMongo {
 
 async fn check_connection(client: &Client) -> mongodb::error::Result<()> {
     client
-        .database("toto")
+        .database(DB_NAME)
         .run_command(doc! {"ping": 1}, None)
         .await?;
 
