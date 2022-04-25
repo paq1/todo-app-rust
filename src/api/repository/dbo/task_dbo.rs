@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct TaskDbo {
     id: String,
     title: String

@@ -4,10 +4,12 @@ use mongodb::bson::{doc, Bson, Document};
 use mongodb::{options::ClientOptions, options::FindOptions, Client, Collection, Cursor};
 use mongodb::bson::oid::ObjectId;
 use futures::stream::TryStreamExt;
+use futures::future;
 
 use crate::core::services::repository::Repository;
 use crate::models::task::Task;
-use crate::api::mapper::{MapperDocument};
+use crate::api::mapper::MapperDocument;
+use crate::core::mapper::MapperModel;
 use crate::api::repository::dbo::task_dbo::TaskDbo;
 
 static DB_NAME: &str = "todo-db";
@@ -61,6 +63,25 @@ impl Repository<Task, TaskDbo> for RepositoryTaskMongo {
             lst.push(task_dbo);
         }
         lst
+    }
+
+    async fn delete(&self, model: Task) {   
+        let object_id: ObjectId = ObjectId::parse_str(model.get_id()).unwrap();
+        let document = doc! {"_id": object_id };
+        let delete_result = self.collection.delete_many(document, None).await.unwrap();
+        println!("{}", delete_result.deleted_count);
+    }
+
+    async fn delete_all(&self) {
+        // on recupere toutes les tasks
+        let dbos: Vec<TaskDbo> = self.read_all().await;
+        let models: Vec<Task> = dbos.iter().map(|dbo| dbo.to_model()).collect();
+
+        future::join_all(
+            models.iter().map(|model| {
+                self.delete(model.clone())
+            })
+        ).await;
     }
 }
 

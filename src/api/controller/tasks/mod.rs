@@ -7,6 +7,7 @@ use crate::api::controller::dto::task_dto::TaskDto;
 use crate::api::repository::dbo::task_dbo::TaskDbo;
 use crate::core::mapper::{MapperDto, MapperModel};
 use crate::core::services::repository::Repository;
+use crate::models::task::Task;
 
 #[get("/tasks")]
 pub async fn get_all(
@@ -38,4 +39,33 @@ pub async fn create_task(
 
     // tout c'est bien passé (pas de panic ici)
     Status::Ok
+}
+
+#[delete("/tasks/<id>")]
+pub async fn delete_task_by_id(
+    task_repository: &State<RepositoryTaskMongo>,
+    id: String
+) -> String {
+    let dbos: Vec<TaskDbo> = task_repository.read_all().await;
+    let tasks: Vec<Task> = dbos
+        .into_iter()
+        .filter(|dbo| dbo.get_id() == id)
+        .map(|dbo| dbo.to_model())
+        .collect::<_>();
+
+    if tasks.len() > 0 {
+        let model: Task = tasks[0].clone();
+        task_repository.delete(model).await;
+        format! ("nombre de suppression : {}", tasks.len())
+    } else {
+        format! ("pas d'id : {}", id)
+    }
+}
+
+#[delete("/tasks")]
+pub async fn delete_all(
+    task_repository: &State<RepositoryTaskMongo>
+) -> String {
+    task_repository.delete_all().await;
+    "Ok".to_string()
 }
