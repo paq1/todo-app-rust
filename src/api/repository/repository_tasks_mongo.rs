@@ -84,8 +84,12 @@ impl Repository<Task, TaskDbo, String> for RepositoryTaskMongo {
             let obj_id: ObjectId = id_bson.as_object_id().unwrap();
             let id_str: String = obj_id.to_hex();
             
+            let sub_tasks_bson: &Bson = &task.get("sub_tasks").unwrap();
+            let sub_tasks_array: &Vec<Bson> = sub_tasks_bson.as_array().unwrap();
+            let sub_tasks_dbos: Vec<TaskDbo> = map_sub_tasks_bson_to_task_dbo(sub_tasks_array);
+
             // contruction du dbo
-            let task_dbo: TaskDbo = TaskDbo::new(id_str, title_str);
+            let task_dbo: TaskDbo = TaskDbo::new(id_str, title_str, sub_tasks_dbos);
             lst.push(task_dbo);
         }
         Ok(lst)
@@ -134,4 +138,21 @@ async fn check_connection(client: &Client) -> mongodb::error::Result<()> {
 
     println!("connection successful");
     Ok(())
+}
+
+fn map_sub_tasks_bson_to_task_dbo(sub_tasks_array: &Vec<Bson>) -> Vec<TaskDbo> {
+    sub_tasks_array.iter()
+        .map(|bson| bson.as_document().unwrap())
+        .map(|bson| {
+            // conversion bson task -> bson dbo
+            let current_id_bson: &Bson = bson.get("id").unwrap();
+            let current_id: String = current_id_bson.as_str().unwrap().to_string();
+            let current_title_bson: &Bson = bson.get("title").unwrap();
+            let current_title: String = current_id_bson.as_str().unwrap().to_string();
+            let current_sub_tasks_bson: &Bson = bson.get("sub_tasks").unwrap();
+            let current_sub_tasks: &Vec<Bson> = current_sub_tasks_bson.as_array().unwrap();
+            let sub_tasks_dbos: Vec<TaskDbo> = map_sub_tasks_bson_to_task_dbo(current_sub_tasks);
+            TaskDbo::new(current_id, current_title, sub_tasks_dbos)
+        })
+        .collect::<_>()
 }

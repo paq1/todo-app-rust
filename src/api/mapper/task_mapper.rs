@@ -8,25 +8,39 @@ use crate::api::mapper::MapperDocument;
 
 impl MapperDocument for Task {
     fn to_document(&self) -> Document {
-        doc! { "title": self.get_title() } 
+        
+        doc! { "title": self.get_title(), "sub_tasks": []  } 
     }
 }
 
 impl MapperDbo<TaskDbo> for Task {
     fn to_dbo(&self) -> TaskDbo {
-        TaskDbo::new(self.get_id(), self.get_title()) 
+
+        let sub_tasks_dbo = self.get_sub_tasks().iter()
+            .map(|model| model.to_dbo())
+            .collect::<_>();
+
+        TaskDbo::new(self.get_id(), self.get_title(), sub_tasks_dbo) 
     }
 }
 
 impl MapperDto<TaskDto> for Task {
     fn to_dto(&self) -> TaskDto {
-        TaskDto::new(Some(self.get_id()), self.get_title()) 
+        let sub_tasks_dto = self.get_sub_tasks().iter()
+            .map(|model| model.to_dto())
+            .collect::<_>();
+        TaskDto::new(Some(self.get_id()), self.get_title(), sub_tasks_dto) 
     }
 }
 
 impl MapperModel<Task> for TaskDbo {
     fn to_model(&self) -> Task {
-        Task::new(self.get_id(), self.get_title()) 
+        
+        let sub_tasks_model = self.get_sub_tasks().iter()
+            .map(|model| model.to_model())
+            .collect::<_>();
+
+        Task::new(self.get_id(), self.get_title(), sub_tasks_model) 
     }
 }
 
@@ -36,6 +50,11 @@ impl MapperModel<Task> for TaskDto {
             Some(id) => id,
             None => "".to_string()
         };
-        Task::new(id, self.get_title())
+
+        let sub_tasks_model = self.get_sub_tasks().iter()
+            .map(|model| model.to_model())
+            .collect::<_>();
+
+        Task::new(id, self.get_title(), sub_tasks_model)
     }
 }
