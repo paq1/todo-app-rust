@@ -32,9 +32,12 @@ pub async fn create_task(
 pub async fn get_all(
     task_repository: &State<RepositoryTaskMongo>
 ) -> Result<Json<Vec<TaskDto>>, Json<ErrorJson>> {
+    // on recupere nos dbos dans un result
     let dbos_res: Result<Vec<TaskDbo>, ErrorMessage> = task_repository
         .read_all().await;
 
+    // on retourne un nos element si tout c'est bien passé
+    // sinon on envoi un message d'erreur
     match dbos_res {
         Ok(dbos) => {
             let entities: Vec<TaskDto> = dbos
@@ -86,7 +89,7 @@ pub async fn delete_task_by_id(
                 let model: Task = tasks[0].clone();
                 match task_repository.delete(model).await {
                     Ok (delete_id) => Ok(format! ("delete : {}", delete_id)),
-                    Err(err) => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
+                    Err(err)       => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
                 }
             } else {
                 let message = format!("pas d'id : {}", id);
@@ -103,6 +106,6 @@ pub async fn delete_all(
 ) -> Result<String, Json<ErrorJson>> {
     match task_repository.delete_all().await {
         Ok(message) => Ok(message),
-        Err(err) => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
+        Err(err)    => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))
     }
 }
