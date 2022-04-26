@@ -3,7 +3,7 @@ use rocket::http::Status;
 use rocket::serde::json::Json;
 
 use crate::api::repository::repository_tasks_mongo::RepositoryTaskMongo;
-use crate::api::controller::dto::{task_dto::TaskDto, error::ErrorJson};
+use crate::api::controller::dto::{task_dto::TaskDto, error_json::ErrorJson};
 use crate::api::repository::dbo::task_dbo::TaskDbo;
 use crate::core::mapper::{MapperDto, MapperModel};
 use crate::core::services::repository::Repository;

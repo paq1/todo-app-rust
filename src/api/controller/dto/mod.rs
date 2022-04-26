@@ -1,2 +1,2 @@
 pub mod task_dto;
-pub mod error;
+pub mod error_json;
