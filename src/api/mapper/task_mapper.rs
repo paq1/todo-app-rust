@@ -7,9 +7,17 @@ use crate::core::mapper::{MapperDbo, MapperDto, MapperModel};
 use crate::api::mapper::MapperDocument;
 
 impl MapperDocument for Task {
-    fn to_document(&self) -> Document {
-        
-        doc! { "title": self.get_title(), "sub_tasks": []  } 
+    fn to_document(&self,  with_id: bool) -> Document {
+        let sub_tasks_model_doc: Vec<Document> = self.get_sub_tasks()
+            .iter()
+            .map(|model| model.to_document(true)) // id a mapper car c'est un id à la con
+            .collect::<_>();
+
+        if with_id {
+            doc! { "id": self.get_id(), "title": self.get_title(), "sub_tasks": sub_tasks_model_doc } 
+        } else {
+            doc! { "title": self.get_title(), "sub_tasks": sub_tasks_model_doc } 
+        }
     }
 }
 
