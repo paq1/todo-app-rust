@@ -58,8 +58,11 @@ pub async fn update(
 ) -> Result<Json<TaskDto>, Json<ErrorJson>> {
     let dto: TaskDto = task_data_dto.0;
     let model: Task = dto.to_model();
-    task_repository.update(model).await.unwrap();
-    let id: String = dto.get_id().unwrap();
+    task_repository.update(&model).await.unwrap();
+    let id: String = match dto.get_id() {
+        Some(id) => id.clone(),
+        None => "".to_string()
+    };
     match task_repository.read(id).await {
         Ok(task) => {
             let task_dto = task.to_model().to_dto();
@@ -81,12 +84,12 @@ pub async fn delete_task_by_id(
         Ok(dbos) => {
             let tasks: Vec<Task> = dbos
                 .into_iter()
-                .filter(|dbo| dbo.get_id() == id)
+                .filter(|dbo| *dbo.get_id() == id)
                 .map(|dbo| dbo.to_model())
                 .collect::<_>();
 
             if tasks.len() > 0 {
-                let model: Task = tasks[0].clone();
+                let model: &Task = &tasks[0];
                 match task_repository.delete(model).await {
                     Ok (delete_id) => Ok(format! ("delete : {}", delete_id)),
                     Err(err)       => Err(Json(ErrorJson::new(err.0, Status::NotFound.code)))

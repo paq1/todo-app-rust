@@ -1,7 +1,9 @@
 use mongodb::{bson::doc,bson::Document};
 
 use crate::models::task::Task;
+use crate::models::task::sub_task::SubTask;
 use crate::api::controller::dto::task_dto::TaskDto;
+use crate::api::controller::dto::sub_task_dto::SubTaskDto;
 use crate::api::repository::dbo::task_dbo::TaskDbo;
 use crate::core::mapper::{MapperDbo, MapperDto, MapperModel};
 use crate::api::mapper::MapperDocument;
@@ -10,7 +12,7 @@ impl MapperDocument for Task {
     fn to_document(&self,  with_id: bool) -> Document {
         let sub_tasks_model_doc: Vec<Document> = self.get_sub_tasks()
             .iter()
-            .map(|model| model.to_document(true)) // id a mapper car c'est un id à la con
+            .map(|model| model.to_document(false)) // id a mapper car c'est un id à la con
             .collect::<_>();
 
         if with_id {
@@ -28,16 +30,18 @@ impl MapperDbo<TaskDbo> for Task {
             .map(|model| model.to_dbo())
             .collect::<_>();
 
-        TaskDbo::new(self.get_id(), self.get_title(), sub_tasks_dbo) 
+        TaskDbo::new(self.get_id().clone(), self.get_title().clone(), sub_tasks_dbo) 
     }
 }
 
 impl MapperDto<TaskDto> for Task {
     fn to_dto(&self) -> TaskDto {
-        let sub_tasks_dto = self.get_sub_tasks().iter()
+
+        let sub_tasks_dto: Vec<SubTaskDto> = self.get_sub_tasks().iter()
             .map(|model| model.to_dto())
-            .collect::<_>();
-        TaskDto::new(Some(self.get_id()), self.get_title(), sub_tasks_dto) 
+            .collect();
+
+        TaskDto::new(Some(self.get_id().clone()), self.get_title().clone(), sub_tasks_dto) 
     }
 }
 
@@ -48,14 +52,14 @@ impl MapperModel<Task> for TaskDbo {
             .map(|model| model.to_model())
             .collect::<_>();
 
-        Task::new(self.get_id(), self.get_title(), sub_tasks_model) 
+        Task::new(self.get_id().clone(), self.get_title().clone(), sub_tasks_model) 
     }
 }
 
 impl MapperModel<Task> for TaskDto {
     fn to_model(&self) -> Task {
         let id: String = match self.get_id() {
-            Some(id) => id,
+            Some(id) => id.clone(),
             None => "".to_string()
         };
 
@@ -63,6 +67,6 @@ impl MapperModel<Task> for TaskDto {
             .map(|model| model.to_model())
             .collect::<_>();
 
-        Task::new(id, self.get_title(), sub_tasks_model)
+        Task::new(id, self.get_title().clone(), sub_tasks_model)
     }
 }

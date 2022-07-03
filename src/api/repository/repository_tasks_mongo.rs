@@ -11,6 +11,7 @@ use crate::models::task::Task;
 use crate::api::mapper::MapperDocument;
 use crate::core::mapper::{MapperModel, MapperDbo};
 use crate::api::repository::dbo::task_dbo::TaskDbo;
+use crate::api::repository::dbo::sub_task_dbo::SubTaskDbo;
 use crate::models::error::ErrorMessage;
 
 static DB_NAME: &str = "todo-db";
@@ -62,7 +63,7 @@ impl Repository<Task, TaskDbo, String> for RepositoryTaskMongo {
     async fn read(&self, id: String) -> Result<TaskDbo, ErrorMessage> {
         let res: Vec<TaskDbo> = self.read_all().await?
             .into_iter()
-            .filter(|dbo| dbo.get_id() == id)
+            .filter(|dbo| *dbo.get_id() == id)
             .collect::<Vec<TaskDbo>>();
         
         if res.len() > 0 {
@@ -86,7 +87,7 @@ impl Repository<Task, TaskDbo, String> for RepositoryTaskMongo {
             
             let sub_tasks_bson: &Bson = &task.get("sub_tasks").unwrap();
             let sub_tasks_array: &Vec<Bson> = sub_tasks_bson.as_array().unwrap();
-            let sub_tasks_dbos: Vec<TaskDbo> = map_sub_tasks_bson_to_task_dbo(sub_tasks_array);
+            let sub_tasks_dbos: Vec<SubTaskDbo> = map_sub_tasks_bson_to_task_dbo(sub_tasks_array);
 
             // contruction du dbo
             let task_dbo: TaskDbo = TaskDbo::new(id_str, title_str, sub_tasks_dbos);
@@ -95,7 +96,7 @@ impl Repository<Task, TaskDbo, String> for RepositoryTaskMongo {
         Ok(lst)
     }
 
-    async fn update(&self, model: Task) -> Result<TaskDbo, ErrorMessage> {
+    async fn update(&self, model: &Task) -> Result<TaskDbo, ErrorMessage> {
         let dbo = model.to_dbo();
         let object_id: ObjectId = ObjectId::parse_str(dbo.get_id()).unwrap();
 
@@ -103,16 +104,16 @@ impl Repository<Task, TaskDbo, String> for RepositoryTaskMongo {
         let update = doc! { "$set": { "title": dbo.get_title() } };
         self.collection.update_one(id_document, update, None).await.unwrap();
 
-        self.read(model.get_id()).await
+        self.read(model.get_id().clone()).await
     }
 
-    async fn delete(&self, model: Task) -> Result<String, ErrorMessage> {   
+    async fn delete(&self, model: &Task) -> Result<String, ErrorMessage> {   
         let object_id: ObjectId = ObjectId::parse_str(model.get_id()).unwrap();
         let document = doc! {"_id": object_id };
         let delete_result = self.collection.delete_many(document, None).await.unwrap();
         
         println!("{}", delete_result.deleted_count);
-        Ok(model.get_id())
+        Ok(model.get_id().clone())
     }
 
     async fn delete_all(&self) -> Result<String, ErrorMessage> {
@@ -122,7 +123,7 @@ impl Repository<Task, TaskDbo, String> for RepositoryTaskMongo {
 
         future::join_all(
             models.iter().map(|model| {
-                self.delete(model.clone())
+                self.delete(model)
             })
         ).await;
 
@@ -140,19 +141,22 @@ async fn check_connection(client: &Client) -> mongodb::error::Result<()> {
     Ok(())
 }
 
-fn map_sub_tasks_bson_to_task_dbo(sub_tasks_array: &Vec<Bson>) -> Vec<TaskDbo> {
+fn map_sub_tasks_bson_to_task_dbo(sub_tasks_array: &Vec<Bson>) -> Vec<SubTaskDbo> {
     sub_tasks_array.iter()
         .map(|bson| bson.as_document().unwrap())
         .map(|document| {
             // conversion bson task -> bson dbo
+            
             let current_id_bson: &Bson = document.get("id").unwrap();
-            let current_id: String = current_id_bson.as_str().unwrap().to_string();
+            let current_id: i32 = current_id_bson.as_i32().unwrap();
+            
             let current_title_bson: &Bson = document.get("title").unwrap();
             let current_title: String = current_title_bson.as_str().unwrap().to_string();
-            let current_sub_tasks_bson: &Bson = document.get("sub_tasks").unwrap();
-            let current_sub_tasks: &Vec<Bson> = current_sub_tasks_bson.as_array().unwrap();
-            let sub_tasks_dbos: Vec<TaskDbo> = map_sub_tasks_bson_to_task_dbo(current_sub_tasks);
-            TaskDbo::new(current_id, current_title, sub_tasks_dbos)
+
+            let current_description_bson: &Bson = document.get("description").unwrap();
+            let current_description: String = current_description_bson.as_str().unwrap().to_string();
+            
+            SubTaskDbo::new(current_id as u32, current_title, Some(current_description))
         })
         .collect::<_>()
 }

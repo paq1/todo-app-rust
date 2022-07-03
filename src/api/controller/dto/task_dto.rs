@@ -1,18 +1,19 @@
 use serde::{Deserialize, Serialize};
+use crate::api::controller::dto::sub_task_dto::SubTaskDto;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct TaskDto {
     id: Option<String>,
     title: String,
-    sub_tasks: Vec<TaskDto>
+    sub_tasks: Vec<SubTaskDto>
 }
 
 impl TaskDto {
-    pub fn new(id: Option<String>, title: String, sub_tasks: Vec<TaskDto>) -> Self {
-        TaskDto {id: id, title: title, sub_tasks: sub_tasks}
+    pub fn new(id: Option<String>, title: String, sub_tasks: Vec<SubTaskDto>) -> Self {
+        TaskDto {id, title, sub_tasks}
     }
 
-    pub fn get_title(&self) -> String { self.title.clone() }
-    pub fn get_id(&self) -> Option<String> { self.id.clone() }
-    pub fn get_sub_tasks(&self) -> Vec<TaskDto> { self.sub_tasks.clone() }
+    pub fn get_id(&self) -> &Option<String> { &self.id }
+    pub fn get_title(&self) -> &String { &self.title }
+    pub fn get_sub_tasks(&self) -> &Vec<SubTaskDto> { &self.sub_tasks }
 }
